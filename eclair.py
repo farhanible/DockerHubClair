@@ -9,20 +9,21 @@ import click
 import time
 import fetch
 
-
-
 import requests
+from requests.auth import HTTPBasicAuth
 
 class Clair:
-    def __init__(self, clair_service_uri, docker_host_uri, docker_image_uri, docker_image_tag):
+    def __init__(self, clair_service_uri, docker_host_uri, docker_image_uri, docker_image_tag, docker_reg_user, docker_reg_pw):
 
         self.clair_service_uri = clair_service_uri
         self.docker_host_uri = docker_host_uri 
         self.docker_image_uri = docker_image_uri
         self.docker_image_tag = docker_image_tag
+        self.docker_reg_user = docker_reg_user
+        self.docker_reg_pw = docker_reg_pw
         self.time_stamp = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time()))
 
-        self.docker_reg_token = fetch.check_auth(self.docker_host_uri + '/v2/' + self.docker_image_uri + '/manifests/' + self.docker_image_tag)
+        self.docker_reg_token = fetch.check_auth(self.docker_host_uri + '/v2/' + self.docker_image_uri + '/manifests/' + self.docker_image_tag,self.docker_reg_user, self.docker_reg_pw)
 
         if docker_image_tag:
             self.docker_image_tag = docker_image_tag
@@ -114,7 +115,7 @@ class Clair:
 
         #Returns a requests response object
         #manifest = fetch.manifest('https://registry-1.docker.io','library/nginx','latest')
-        manifest = fetch.manifest(self.docker_host_uri,self.docker_image_uri,self.docker_image_tag)
+        manifest = fetch.manifest(self.docker_host_uri,self.docker_image_uri,self.docker_image_tag, self.docker_reg_user,self.docker_reg_pw)
         print manifest
         logging.debug(str(manifest))
 
@@ -164,16 +165,20 @@ class Clair:
 
 @click.command()
 @click.option('--clair-service-uri', help='URI for the Clair service. Format: http://localhost:6060', required=True)
-@click.option('--docker-reg-uri', help='URI for the Docker host. Format: https://registry-1.docker.io', required=False)
+@click.option('--docker-reg-uri', help='URI for the Docker host. Format: https://registry-1.docker.io:443', required=False)
 @click.option('--docker-image-uri', help='URI for the Docker image to be scanned. Format: library/nginx ', required=True)
 @click.option('--docker-image-tag', help='Tag for the Docker image')
+@click.option('--docker-reg-user', help='Tag for the Docker image')
+@click.option('--docker-reg-pw', help='Tag for the Docker image')
 
-def main1(clair_service_uri, docker_reg_uri, docker_image_uri):
+def main1(clair_service_uri, docker_reg_uri, docker_image_uri, docker_image_tag, docker_reg_user, docker_reg_pw):
     Clair(
         clair_service_uri,
         docker_reg_uri,
         docker_image_uri,
-        docker_image_tag
+        docker_image_tag,
+        docker_reg_user,
+        docker_reg_pw
         ).run()
 
 
