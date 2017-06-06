@@ -164,7 +164,7 @@ class Clair:
 
 @click.command()
 @click.option('--clair-service-uri', help='URI for the Clair service. Format: http://localhost:6060', required=True)
-@click.option('--docker-reg-uri', help='URI for the Docker host. Format: https://registry-1.docker.io:443', required=False)
+@click.option('--docker-reg-uri', help='URI for the Docker host. Format: https://registry-1.docker.io', required=False)
 @click.option('--docker-image-uri', help='URI for the Docker image to be scanned. Format: library/nginx ', required=True)
 @click.option('--docker-image-tag', help='Tag for the Docker image')
 
