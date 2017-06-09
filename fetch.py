@@ -35,7 +35,7 @@ def check_auth(uri,user,password):
 			print '\n\nAttempting OAuth authentication: '
 			return(get_registry_token_auth(manifest_response.headers['WWW-Authenticate'], user, password))
 		else:
-			return(get_registry_token(manifest_response.headers['WWW-Authenticate'],user,password))
+			return(get_registry_token(manifest_response.headers['WWW-Authenticate']))
 	elif manifest_response.status_code/100 == 2:
 		print '\n\nUnauthenticated registry.'
 		return True
@@ -66,16 +66,10 @@ def get_registry_token(www_auth):
 	TOKEN_SERVER_URL = TOKEN_SERVER_REALM + '?service=' + TOKEN_SERVER_SERVICE + '&scope=' + TOKEN_SERVER_SCOPE
 
 	print "\n\nTOKEN_SERVER_URL: " + TOKEN_SERVER_URL
-
-	#Private registries require Basic authentication. 
-	if (user is not None) and (password is not None):
-		if user != "" and password != "":
-			tokenserver_response = requests.get(TOKEN_SERVER_URL,auth=(user, password))
 	
 	#Publicly accessible images still require authentication tokens on OAuth authenticated registries.
 	#But they do not require Basic authentication. The authorization server hands out tokens like candy.
-	else:
-		tokenserver_response = requests.get(TOKEN_SERVER_URL)
+	tokenserver_response = requests.get(TOKEN_SERVER_URL)
 
 	print tokenserver_response.status_code
 	print tokenserver_response.headers['content-type']
