@@ -24,6 +24,8 @@ class Clair:
         self.docker_image_tag = docker_image_tag
         self.docker_reg_user = docker_reg_user
         self.docker_reg_pw = docker_reg_pw
+        self.log_server_uri = log_server_uri
+        self.logs = str()
         self.vuln_severity_fail = vuln_severity_fail.replace(" ","").lower().split(",")  #Split potentially multiple sev fail values into a list
 
         self.time_stamp = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time()))
@@ -66,7 +68,8 @@ class Clair:
 
         layers = self.analyse(self.docker_image_uri,self.docker_reg_token)
 
-        layer_ids = []
+        layer_ids = list()
+        log_dict = dict()
 
         for layer in layers:
             layer_ids.append(layer['id'])
@@ -102,6 +105,42 @@ class Clair:
                     if SYS_EXIT_FAIL == False:
                         if vulnerability.get('Severity','null').lower() in self.vuln_severity_fail:
                             SYS_EXIT_FAIL = True
+
+                    #Only collect logs if a log server uri was provided
+                    if self.log_server_uri:
+                        log_dict = dict()
+                        log_dict['timestamp'] = self.time_stamp
+                        #log_dict['Feature'] = str(feature)
+                        log_dict['VersionFormat'] = feature.get('VersionFormat','null')
+                        log_dict['NamespaceName'] = feature.get('NamespaceName','null')
+                        log_dict['Version_affected'] = feature.get('Version','null')
+                        log_dict['Version_fixed'] = feature.get('FixedBy','null')
+                        log_dict['Name'] = feature.get('Name','null')
+                        added_by = feature.get('AddedBy','null+null:null_null')
+                        log_dict['docker_image'] = added_by[:added_by.find(':')].replace('+','/')
+                        log_dict['tag'] = added_by[added_by.find(':'):added_by.find('_',added_by.find(':'))]
+                        log_dict['layer'] = added_by[added_by.find('_',added_by.find(':')):]
+                        log_dict['CVE_ID'] = vulnerability.get('Name','null')
+                        log_dict['Description'] = vulnerability.get('Description','null')
+
+                        log_dict['Severity'] = vulnerability.get('Severity','null')
+                        log_dict['NamespaceName'] = vulnerability.get('NamespaceName','null')
+                        log_dict['Link'] = vulnerability.get('Link','null')
+                        
+                        log_dict['CVSS_Score'] = str(vulnerability.get('Metadata',{}).get('NVD',{}).get('CVSSv2',{}).get('Score','null'))
+                        log_dict['CVSS_Vectors'] = vulnerability.get('Metadata',{}).get('NVD',{}).get('CVSSv2',{}).get('Vectors','null')
+
+                        self.logs = self.logs + json.dumps(log_dict) + '\n'
+
+        #Only ship logs if a log server uri was provided
+        if self.log_server_uri:
+            
+            self.log.warn("Sending logs to: " + self.log_server_uri)
+
+            if self.logs != "":
+                self.send_logs(self.log_server_uri, self.logs)
+            else:
+                self.send_logs(self.log_server_uri, "No vulnerabilities found.")
 
         if SYS_EXIT_FAIL == True:  #One of the vulns found has a severity that exists in the --vuln-severity-fail argument values passed at the cmd line
             try:
@@ -168,7 +207,7 @@ class Clair:
             self.log.debug('\n\n' + str(layer))
             
 
-            layers.append({ 'id': '_'.join(self.docker_image_uri.split('/')) + ':' + self.docker_image_tag + '_' +  layer['digest'],
+            layers.append({ 'id': '+'.join(self.docker_image_uri.split('/')) + ':' + self.docker_image_tag + '_' +  layer['digest'],
                             'path': self.docker_host_uri + '/v2/' + self.docker_image_uri + '/blobs/' + layer['digest'],
                             'parent': parent_layer,
                             'image': image
@@ -199,13 +238,22 @@ class Clair:
         '''
         r = requests.get(self.clair_service_uri +'/v1/layers/'+layer_id+'?features&vulnerabilities')
         if r.status_code != 200:
-            self.log.debug('\n\nClaire fetching vulnerabilities')
+            self.log.debug('\n\nClair fetching vulnerabilities')
             self.log.debug(r.status_code)
             self.log.debug(r.text)
             time.sleep(5)
             logging.error('Could not get info on layer '+layer_id)
             return None
         return r.json()
+
+    def send_logs(self, uri, logs):
+ 
+        print 'Starting Log Export'
+        
+        headers = {'content-type': 'application/json; charset=UTF-8', 'accept': 'application/json'}
+        return requests.post(uri, data=logs, headers=headers)
+
+        print 'Ending Log Export'
 
 
 @click.command(help='Use --help to display usage.',short_help='Use --help to display usage.')
@@ -234,7 +282,7 @@ def main1(clair_service_uri, docker_reg_uri, docker_image_uri, docker_image_tag,
         docker_image_tag,
         docker_reg_user,
         docker_reg_pw,
-        vuln_severity_fail
+        vuln_severity_fail,
         log_server_uri
         ).run()
 
