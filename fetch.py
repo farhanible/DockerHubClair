@@ -139,5 +139,6 @@ def get_file(uri, token, user, password):
 
 	return json.loads(json.dumps(registry_reponse.json()))
 
+
 if __name__ == '__main__':
     run('https://registry-1.docker.io','library/nginx','latest')
